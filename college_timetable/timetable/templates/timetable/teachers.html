@@ -1,0 +1,185 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Teachers – Timetable AI</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <link rel="stylesheet" href="{% static 'timetable/css/app.css' %}">
+</head>
+<body>
+<div class="tt-app">
+
+    <!-- =============== HEADER =============== -->
+    <header class="tt-header">
+        <div class="tt-header__left">
+            <div class="tt-header__brand">
+                <span class="tt-header__logo">TT</span>
+                <span class="tt-header__title">Timetable AI</span>
+            </div>
+        </div>
+
+        <div class="tt-header__right">
+            <nav class="tt-header__nav" aria-label="Main navigation">
+                <a href="{% url 'timetable_overview' %}" class="tt-header__link">Dashboard</a>
+                <a href="{% url 'teachers_overview' %}" class="tt-header__link tt-header__link--active">Teachers</a>
+                <a href="{% url 'classes_overview' %}" class="tt-header__link">Classes</a>
+                <a href="#" class="tt-header__link">Settings</a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- =============== MAIN =============== -->
+    <main class="tt-main">
+        <!-- Status toast (used by app.js) -->
+        <section class="tt-status">
+            <div id="status-message" class="tt-status__toast"></div>
+        </section>
+
+        <!-- ===== SUMMARY PANEL ===== -->
+        <section class="tt-panel tt-panel--secondary">
+            <header class="tt-panel__header tt-panel__header--compact">
+                <h1 class="tt-panel__title">Teachers</h1>
+                <p class="tt-panel__subtitle">
+                    Subject responsibilities and 5×7 weekly timetable for each teacher.
+                </p>
+            </header>
+            <div class="tt-panel__body">
+                <p class="tt-text-muted">
+                    Total teachers: {{ teacher_tables|length }}
+                </p>
+            </div>
+        </section>
+
+        <!-- ===== TEACHER TIMETABLES ===== -->
+        <section class="tt-panel tt-panel--table">
+            <header class="tt-panel__header tt-panel__header--compact">
+                <div>
+                    <h2 class="tt-panel__title">Teacher‑wise timetables</h2>
+                    <p class="tt-panel__subtitle">
+                        Each timetable shows which classes and subjects a teacher handles during the week.
+                    </p>
+                </div>
+                <div class="tt-panel__header-actions">
+                    <!-- Search box -->
+                    <input id="teacher-search"
+                           type="text"
+                           class="filter-form__control"
+                           placeholder="Search teachers by name or subject…">
+                </div>
+            </header>
+
+            <div class="tt-panel__body">
+                {% if teacher_tables %}
+                    {% for t in teacher_tables %}
+                        {# Search target: teacher name + subjects #}
+                        <article class="tt-class-card tt-teacher-card"
+                                 id="teacher-card-{{ t.teacher.id }}"
+                                 data-teacher-id="{{ t.teacher.id }}"
+                                 data-teacher-name="{{ t.teacher.name }}"
+                                 data-teacher-search="{{ t.teacher.name }}{% for s in t.subjects %} {{ s.code }} {{ s.name }}{% endfor %}">
+                            <header class="tt-class-card__header">
+                                <div>
+                                    <h3 class="tt-class-card__title">{{ t.teacher.name }}</h3>
+                                    <p class="tt-class-card__meta">
+                                        Subjects:
+                                        {% for s in t.subjects %}
+                                            {{ s.code }} – {{ s.name }}{% if not forloop.last %}, {% endif %}
+                                        {% empty %}
+                                            None
+                                        {% endfor %}
+                                    </p>
+                                </div>
+                                <div class="tt-class-card__actions">
+                                    <button type="button"
+                                            class="tt-btn tt-btn--ghost tt-btn--sm"
+                                            data-export-teacher="png"
+                                            data-teacher-id="{{ t.teacher.id }}">
+                                        PNG
+                                    </button>
+                                    <button type="button"
+                                            class="tt-btn tt-btn--ghost tt-btn--sm"
+                                            data-export-teacher="pdf"
+                                            data-teacher-id="{{ t.teacher.id }}">
+                                        PDF
+                                    </button>
+                                </div>
+                            </header>
+
+                            <div class="tt-class-card__table-wrapper tt-teacher-card__table-wrapper">
+                                <div class="tt-table-scroll">
+                                    <table class="tt-table"
+                                           aria-label="Timetable for {{ t.teacher.name }}">
+                                        <thead>
+                                        <tr>
+                                            <th class="tt-table__header tt-table__header--corner">
+                                                Day / Period
+                                            </th>
+                                            <th class="tt-table__header">P1</th>
+                                            <th class="tt-table__header">P2</th>
+                                            <th class="tt-table__header">P3</th>
+                                            <th class="tt-table__header">P4</th>
+                                            <th class="tt-table__header">P5</th>
+                                            <th class="tt-table__header">P6</th>
+                                            <th class="tt-table__header">P7</th>
+                                        </tr>
+                                        </thead>
+                                        <tbody>
+                                        {% for row in t.rows %}
+                                            <tr class="tt-table__row">
+                                                <th scope="row" class="tt-table__day">
+                                                    {{ row.day_name }}
+                                                </th>
+                                                {% for cell in row.cells %}
+                                                    <td class="tt-table__cell">
+                                                        {% if cell %}
+                                                            <div class="tt-slot{% if cell.is_lab %} tt-slot--lab{% endif %}">
+                                                                <span class="tt-slot__subject">
+                                                                    {{ cell.class_group.name }} – {{ cell.subject.code }}
+                                                                </span>
+                                                                <span class="tt-slot__teacher">
+                                                                    {{ cell.subject.name }}
+                                                                </span>
+                                                            </div>
+                                                        {% else %}
+                                                            <div class="tt-slot tt-slot--empty">
+                                                                <span class="tt-slot__empty">Free</span>
+                                                            </div>
+                                                        {% endif %}
+                                                    </td>
+                                                {% endfor %}
+                                            </tr>
+                                        {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </article>
+                    {% endfor %}
+                {% else %}
+                    <p class="tt-text-muted">
+                        No teacher timetables available. Generate the timetable first.
+                    </p>
+                {% endif %}
+            </div>
+        </section>
+    </main>
+
+    <!-- =============== FOOTER =============== -->
+    <footer class="tt-footer">
+        <div class="tt-footer__inner">
+            <span>© <span id="footer-year"></span> Timetable AI</span>
+            <span class="tt-footer__meta">Teacher‑wise timetable view</span>
+        </div>
+    </footer>
+</div>
+
+<!-- Export libraries + main JS (same as dashboard) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="{% static 'timetable/js/app.js' %}"></script>
+</body>
+</html>

@@ -1,0 +1,293 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>College Timetable Generator</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <link rel="stylesheet" href="{% static 'timetable/css/app.css' %}">
+</head>
+<body>
+<div class="tt-app">
+
+    <!-- HEADER -->
+    <header class="tt-header">
+        <div class="tt-header__left">
+            <div class="tt-header__brand">
+                <span class="tt-header__logo">TT</span>
+                <span class="tt-header__title">Timetable AI</span>
+            </div>
+        </div>
+
+        <div class="tt-header__right">
+            <nav class="tt-header__nav" aria-label="Main navigation">
+                <a href="#" class="tt-header__link tt-header__link--active">Dashboard</a>
+                <a href="./teachers" class="tt-header__link">Teachers</a>
+                <a href="./classes" class="tt-header__link">Classes</a>
+                <a href="#" class="tt-header__link">Settings</a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- MAIN -->
+    <main class="tt-main">
+        <section class="tt-main__top">
+            <!-- GENERATOR PANEL -->
+            <section class="tt-panel tt-panel--primary">
+                <header class="tt-panel__header">
+                    <div>
+                        <h1 class="tt-panel__title">Timetable Generator</h1>
+                        <p class="tt-panel__subtitle">
+                            Generate a complete timetable for all classes in one click.
+                        </p>
+                    </div>
+                    <form id="generate-form" method="post" action="{% url 'generate_timetable' %}">
+                        {% csrf_token %}
+                        <button type="submit" class="tt-btn tt-btn--primary" id="btn-generate">
+                            Generate Timetable
+                        </button>
+                    </form>
+                </header>
+
+                <div class="tt-panel__body tt-panel__body--compact">
+                    <p class="tt-text-muted">
+                        Constraints:
+                    </p>
+                    <ul class="tt-list">
+                        <li>5 days a week (Monday–Friday), 7 periods per day.</li>
+                        <li>Breaks after 2nd, 4th, and 6th periods.</li>
+                        <li>Labs are 2 continuous periods and never split around breaks.</li>
+                        <li>Teachers limited by availability and max hours per day.</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- SUMMARY -->
+            <section class="tt-panel tt-panel--secondary">
+                <header class="tt-panel__header tt-panel__header--compact">
+                    <h2 class="tt-panel__title">Overview</h2>
+                </header>
+                <div class="tt-panel__body">
+                    <div class="tt-summary-grid">
+                        <article class="tt-summary-card">
+                            <h3 class="tt-summary-card__label">Classes</h3>
+                            <p class="tt-summary-card__value">
+                                {{ summary.classes|default:class_tables|length }}
+                            </p>
+                            <p class="tt-summary-card__hint">Active class groups</p>
+                        </article>
+
+                        <article class="tt-summary-card">
+                            <h3 class="tt-summary-card__label">Teachers</h3>
+                            <p class="tt-summary-card__value">
+                                {{ summary.teachers|default:"–" }}
+                            </p>
+                            <p class="tt-summary-card__hint">With defined availability</p>
+                        </article>
+
+                        <article class="tt-summary-card">
+                            <h3 class="tt-summary-card__label">Labs</h3>
+                            <p class="tt-summary-card__value">
+                                {{ summary.labs|default:"–" }}
+                            </p>
+                            <p class="tt-summary-card__hint">2‑hour continuous sessions</p>
+                        </article>
+
+                        <article class="tt-summary-card tt-summary-card--warning">
+                            <h3 class="tt-summary-card__label">Conflicts</h3>
+                            <p class="tt-summary-card__value">
+                                {{ summary.conflicts|default:"0" }}
+                            </p>
+                            <p class="tt-summary-card__hint">Unresolved constraint issues</p>
+                        </article>
+                    </div>
+                </div>
+            </section>
+        </section>
+
+        <!-- STATUS / DJANGO MESSAGES -->
+        <section class="tt-status">
+            <div id="status-message" class="tt-status__toast"></div>
+
+            {% if messages %}
+                <ul class="tt-django-messages">
+                    {% for message in messages %}
+                        <li class="tt-django-messages__item tt-django-messages__item--{{ message.tags }}">
+                            {{ message }}
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        </section>
+
+        <!-- SUBJECT & STAFF DETAILS (subject-staff mapping) -->
+        {% if subject_staff %}
+        <section class="tt-panel tt-panel--secondary">
+            <header class="tt-panel__header tt-panel__header--compact">
+                <h2 class="tt-panel__title">Subject &amp; Staff Details</h2>
+            </header>
+            <div class="tt-panel__body">
+                <div class="tt-table-scroll">
+                    <table class="tt-table tt-table--simple" aria-label="Subject and staff mapping">
+                        <thead>
+                        <tr>
+                            <th class="tt-table__header">Code</th>
+                            <th class="tt-table__header">Subject</th>
+                            <th class="tt-table__header">Teachers</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% for row in subject_staff %}
+                            <tr class="tt-table__row">
+                                <td class="tt-table__cell">{{ row.subject.code }}</td>
+                                <td class="tt-table__cell">{{ row.subject.name }}</td>
+                                <td class="tt-table__cell">
+                                    {{ row.teachers|join:", " }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+        {% endif %}
+
+        <!-- CLASS TIMETABLES + EXPORT -->
+        <section class="tt-panel tt-panel--table">
+            <header class="tt-panel__header tt-panel__header--compact">
+                <div>
+                    <h2 class="tt-panel__title">Class Timetables</h2>
+                    <p class="tt-panel__subtitle">
+                        5 × 7 grid (breaks indicated after P2, P4, P6).
+                    </p>
+                </div>
+                <div class="tt-panel__header-actions">
+                    <button type="button"
+                            class="tt-btn tt-btn--ghost tt-btn--sm"
+                            id="btn-export-all-pdf">
+                        Download all classes (PDF)
+                    </button>
+                </div>
+            </header>
+
+            <div class="tt-panel__body">
+                {% if class_tables %}
+                    {% for table in class_tables %}
+                        <article class="tt-class-card"
+                                 id="class-card-{{ table.class_group.id }}"
+                                 data-class-id="{{ table.class_group.id }}"
+                                 data-class-name="{{ table.class_group.name }}">
+                            <header class="tt-class-card__header">
+                                <div>
+                                    <h3 class="tt-class-card__title">
+                                        {{ table.class_group.name }}
+                                    </h3>
+                                    <p class="tt-class-card__meta">
+                                        {{ table.class_group.department|default:"" }}
+                                        {% if table.class_group.year %} · Year {{ table.class_group.year }}{% endif %}
+                                    </p>
+                                </div>
+                                <div class="tt-class-card__actions">
+                                    <button type="button"
+                                            class="tt-btn tt-btn--ghost tt-btn--sm"
+                                            data-export="png"
+                                            data-class-id="{{ table.class_group.id }}">
+                                        PNG
+                                    </button>
+                                    <button type="button"
+                                            class="tt-btn tt-btn--ghost tt-btn--sm"
+                                            data-export="pdf"
+                                            data-class-id="{{ table.class_group.id }}">
+                                        PDF
+                                    </button>
+                                </div>
+                            </header>
+
+                            <div class="tt-class-card__table-wrapper">
+                                <div class="tt-table-scroll">
+                                    <table class="tt-table"
+                                           aria-label="Timetable for {{ table.class_group.name }}">
+                                        <colgroup>
+                                            <col class="tt-table__col tt-table__col--day">
+                                            <col class="tt-table__col" data-period="0">
+                                            <col class="tt-table__col tt-table__col--break-right" data-period="1">
+                                            <col class="tt-table__col" data-period="2">
+                                            <col class="tt-table__col tt-table__col--break-right" data-period="3">
+                                            <col class="tt-table__col" data-period="4">
+                                            <col class="tt-table__col tt-table__col--break-right" data-period="5">
+                                            <col class="tt-table__col" data-period="6">
+                                        </colgroup>
+
+                                        <thead>
+                                        <tr>
+                                            <th class="tt-table__header tt-table__header--corner">Day / Period</th>
+                                            <th class="tt-table__header">P1</th>
+                                            <th class="tt-table__header">P2</th>
+                                            <th class="tt-table__header">P3</th>
+                                            <th class="tt-table__header">P4</th>
+                                            <th class="tt-table__header">P5</th>
+                                            <th class="tt-table__header">P6</th>
+                                            <th class="tt-table__header">P7</th>
+                                        </tr>
+                                        </thead>
+
+                                        <tbody>
+                                        {% for row in table.rows %}
+                                            <tr class="tt-table__row">
+                                                <th scope="row" class="tt-table__day">
+                                                    {{ row.day_name }}
+                                                </th>
+                                                {% for cell in row.cells %}
+                                                    <td class="tt-table__cell">
+                                                        {% if cell %}
+                                                            <div class="tt-slot{% if cell.is_lab %} tt-slot--lab{% endif %}">
+                                                                <span class="tt-slot__subject">
+                                                                    {{ cell.subject.code }} – {{ cell.subject.name }}
+                                                                </span>
+                                                                <span class="tt-slot__teacher">
+                                                                    {{ cell.teacher.name }}
+                                                                </span>
+                                                            </div>
+                                                        {% else %}
+                                                            <div class="tt-slot tt-slot--empty">
+                                                                <span class="tt-slot__empty">Free</span>
+                                                            </div>
+                                                        {% endif %}
+                                                    </td>
+                                                {% endfor %}
+                                            </tr>
+                                        {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </article>
+                    {% endfor %}
+                {% else %}
+                    <p class="tt-text-muted">No classes defined yet.</p>
+                {% endif %}
+            </div>
+        </section>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="tt-footer">
+        <div class="tt-footer__inner">
+            <span>© <span id="footer-year"></span> Timetable AI</span>
+            <span class="tt-footer__meta">Labs = 2 continuous periods · Breaks after P2, P4, P6</span>
+        </div>
+    </footer>
+</div>
+
+<!-- Export libraries (MUST be before app.js) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+<!-- Main JS -->
+<script src="{% static 'timetable/js/app.js' %}"></script>
+</body>
+</html>

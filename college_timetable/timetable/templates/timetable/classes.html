@@ -1,0 +1,166 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Classes – Timetable AI</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <link rel="stylesheet" href="{% static 'timetable/css/app.css' %}">
+</head>
+<body>
+<div class="tt-app">
+
+    <!-- =============== HEADER =============== -->
+    <header class="tt-header">
+        <div class="tt-header__left">
+            <div class="tt-header__brand">
+                <span class="tt-header__logo">TT</span>
+                <span class="tt-header__title">Timetable AI</span>
+            </div>
+        </div>
+
+        <div class="tt-header__right">
+            <nav class="tt-header__nav" aria-label="Main navigation">
+                <a href="{% url 'timetable_overview' %}" class="tt-header__link">Dashboard</a>
+                <a href="{% url 'teachers_overview' %}" class="tt-header__link">Teachers</a>
+                <a href="{% url 'classes_overview' %}" class="tt-header__link tt-header__link--active">Classes</a>
+                <a href="#" class="tt-header__link">Settings</a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- =============== MAIN =============== -->
+    <main class="tt-main">
+        <!-- Status toast (for app.js messages) -->
+        <section class="tt-status">
+            <div id="status-message" class="tt-status__toast"></div>
+        </section>
+
+        <!-- ===== SUMMARY PANEL ===== -->
+        <section class="tt-panel tt-panel--secondary">
+            <header class="tt-panel__header tt-panel__header--compact">
+                <h1 class="tt-panel__title">Classes</h1>
+                <p class="tt-panel__subtitle">
+                    Subjects configured for each class and which staff members are assigned.
+                </p>
+            </header>
+            <div class="tt-panel__body">
+                <p class="tt-text-muted">
+                    Total classes: {{ class_configs|length }}
+                </p>
+            </div>
+        </section>
+
+        <!-- ===== CLASS CONFIGURATION LIST ===== -->
+        <section class="tt-panel tt-panel--table">
+            <header class="tt-panel__header tt-panel__header--compact">
+                <h2 class="tt-panel__title">Class‑wise subject configuration</h2>
+                <p class="tt-panel__subtitle">
+                    Each row links a class to a subject, hours per week, and the primary teacher.
+                </p>
+            </header>
+
+            <div class="tt-panel__body">
+                {% if class_configs %}
+                    {% for cfg in class_configs %}
+                        <article class="tt-class-card">
+                            <header class="tt-class-card__header">
+                                <div>
+                                    <h3 class="tt-class-card__title">
+                                        {{ cfg.class_group.name }}
+                                    </h3>
+                                    <p class="tt-class-card__meta">
+                                        {{ cfg.class_group.department|default:"" }}
+                                        {% if cfg.class_group.year %}
+                                            · Year {{ cfg.class_group.year }}
+                                        {% endif %}
+                                    </p>
+                                </div>
+                            </header>
+
+                            <div class="tt-class-card__table-wrapper">
+                                <div class="tt-table-scroll">
+                                    <table class="tt-table tt-table--simple"
+                                           aria-label="Subjects for {{ cfg.class_group.name }}">
+                                        <thead>
+                                        <tr>
+                                            <th class="tt-table__header">Code</th>
+                                            <th class="tt-table__header">Subject</th>
+                                            <th class="tt-table__header">Hours / Week</th>
+                                            <th class="tt-table__header">Type</th>
+                                            <th class="tt-table__header">Assigned Teacher</th>
+                                            <th class="tt-table__header">Can be handled by</th>
+                                        </tr>
+                                        </thead>
+                                        <tbody>
+                                        {% for row in cfg.subjects %}
+                                            <tr class="tt-table__row">
+                                                <td class="tt-table__cell">
+                                                    {{ row.subject.code }}
+                                                </td>
+                                                <td class="tt-table__cell">
+                                                    {{ row.subject.name }}
+                                                </td>
+                                                <td class="tt-table__cell">
+                                                    {{ row.hours_per_week }}
+                                                </td>
+                                                <td class="tt-table__cell">
+                                                    {% if row.is_lab %}Lab{% else %}Theory{% endif %}
+                                                </td>
+                                                <td class="tt-table__cell">
+                                                    {% if row.assigned_teacher %}
+                                                        {{ row.assigned_teacher }}
+                                                    {% else %}
+                                                        <span class="tt-text-muted">Not assigned</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td class="tt-table__cell">
+                                                    {% if row.all_teachers %}
+                                                        {{ row.all_teachers|join:", " }}
+                                                    {% else %}
+                                                        <span class="tt-text-muted">No eligible staff mapped</span>
+                                                    {% endif %}
+                                                </td>
+                                            </tr>
+                                        {% empty %}
+                                            <tr>
+                                                <td colspan="6" class="tt-table__cell">
+                                                    <span class="tt-text-muted">
+                                                        No subjects configured for this class yet.
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </article>
+                    {% endfor %}
+                {% else %}
+                    <p class="tt-text-muted">
+                        No classes configured yet. Add ClassGroup and ClassSubject entries first.
+                    </p>
+                {% endif %}
+            </div>
+        </section>
+    </main>
+
+    <!-- =============== FOOTER =============== -->
+    <footer class="tt-footer">
+        <div class="tt-footer__inner">
+            <span>© <span id="footer-year"></span> Timetable AI</span>
+            <span class="tt-footer__meta">Class‑wise subject &amp; staff configuration</span>
+        </div>
+    </footer>
+</div>
+
+<!-- Reuse same JS/libs as dashboard -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="{% static 'timetable/js/app.js' %}"></script>
+</body>
+</html>
